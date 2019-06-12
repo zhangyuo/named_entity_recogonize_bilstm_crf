@@ -1,4 +1,4 @@
-# BiLSTM-CRF 模型实现中文命名实体识别
+# BiLSTM-CRF之中文命名实体识别
 
 ---
 
@@ -57,16 +57,22 @@
 
 ---
 
-> 2017/09/22 新增业务实体
+## 领域应用场景
 
-新增业务实体，表示为OTH
+### 1.政策发布机构提取
 
+根据政策文本内容，从句中截取机构实体
 
 ---
+
+## Interface
 
 > 2017/11/08 新增了flask的访问接口
 
 ![result](result.png)
+
+
+---
 
 [1]:https://arxiv.org/pdf/1508.01991v1.pdf
 [2]:http://aclweb.org/anthology/N16-1030

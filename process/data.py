@@ -13,7 +13,8 @@ import numpy as np
 # }
 tag2label = {
     "S": 0,
-    "B": 1, "M": 2,
+    "B": 1,
+    "M": 2,
     "E": 3
 }
 

@@ -1,20 +1,19 @@
 __author__ = 'jrlimingyang@jd.com'
 
-import os, sys
+import os
 import pickle
-from utils import get_entity
-import numpy as np
+from process.utils import get_entity
 import tensorflow as tf
 from tensorflow.contrib.crf import viterbi_decode
 from functools import wraps
-from flask import Flask, request, jsonify
-
+from flask import Flask, request
 
 tag2label = {"O": 0,
-             'B-PER':1, 'I-PER':2,
-             'B-LOC':3, 'I-LOC':4,
-             'B-ORG':5, 'I-ORG':6,
-             'B-OTH':7, 'I-OTH':8}
+             'B-PER': 1, 'I-PER': 2,
+             'B-LOC': 3, 'I-LOC': 4,
+             'B-ORG': 5, 'I-ORG': 6,
+             'B-OTH': 7, 'I-OTH': 8}
+
 
 # 加载词典
 def read_dictionary(vocab_path):
@@ -23,6 +22,7 @@ def read_dictionary(vocab_path):
         word2id = pickle.load(fr)
     # print ('vocab_size: ', len(word2id))
     return word2id
+
 
 # 将输入文本转换成字符index
 def sentence2id(sent, word2id):
@@ -38,7 +38,7 @@ def sentence2id(sent, word2id):
 
 # 将输入文本转换成模型的输入
 def batch_yield(data, vocab, tag2label):
-    seqs, labels = [] , []
+    seqs, labels = [], []
     for (sent_, tag_) in data:
         sent_ = sentence2id(sent_, vocab)
         label_ = [tag2label[tag] for tag in tag_]
@@ -74,25 +74,26 @@ def get_feed_dict(seqs, labels=None):
     return feed_dict, seq_len_list
 
 
-
-
 '''
 Load a tensorflow model and make it available as a REST service
 '''
 
 app = Flask(__name__)
 
+
 def parse_postget(f):
     @wraps(f)
     def wrapper(*args, **kw):
         try:
             d = dict((key, request.values.getlist(key) if len(request.values.getlist(key)) > 1 else
-                      request.values.getlist(key)[0]) for key in request.values.keys())
+            request.values.getlist(key)[0]) for key in request.values.keys())
 
         except BadRequest as e:
             raise Exception("Payload must be a valid json. {}".format(e))
         return f(d)
+
     return wrapper
+
 
 @app.route('/model', methods=['GET', 'POST'])
 @parse_postget
@@ -106,9 +107,10 @@ def deploy_model(d):
         output_key = 'output'
         output_key2 = 'transition_param'
 
-        meta_graph_def = tf.saved_model.loader.load(sess, ['test_saved_model'], os.path.join(os.getcwd(), 'model/1506177919'))
+        meta_graph_def = tf.saved_model.loader.load(sess, ['test_saved_model'],
+                                                    os.path.join(os.getcwd(), 'model/1506177919'))
         # 从 meta_graph_def 中取出 SignatureDef 对象
-        signature =  meta_graph_def.signature_def
+        signature = meta_graph_def.signature_def
 
         # 从 signature 中找到具体输入输出的 tensor name
         x_tensor_name = signature[signature_key].inputs[input_key].name
@@ -121,8 +123,6 @@ def deploy_model(d):
         y = sess.graph.get_tensor_by_name(y_tensor_name)
         y2 = sess.graph.get_tensor_by_name(y_tensor_name2)
 
-
-
         sent = d['1']
         input_sent = list(sent.strip())
         input_data = [(input_sent, ['O'] * len(input_sent))]
@@ -130,8 +130,8 @@ def deploy_model(d):
             feed_dict, seq_len_list = get_feed_dict(seqs, labels)
 
             [logits, transition_params] = sess.run([y, y2], feed_dict={
-                    word_ids: seqs, sequence_lengths: seq_len_list
-                })
+                word_ids: seqs, sequence_lengths: seq_len_list
+            })
 
             label_list = []
 
@@ -147,8 +147,5 @@ def deploy_model(d):
             return ('PER: {}\nLOC: {}\nORG: {}\nOTH: {}'.format(PER, LOC, ORG, OTH))
 
 
-
-
 if __name__ == '__main__':
-
     app.run(debug=True)

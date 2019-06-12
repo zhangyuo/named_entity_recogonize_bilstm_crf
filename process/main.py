@@ -1,18 +1,18 @@
 __author__ = 'jrlimingyang@jd.com'
 
 import tensorflow as tf
-from model import BiLSTM_CRF
+from process.model import BiLSTM_CRF
 import numpy as np
-import os, argparse, time, random
-from utils import str2bool, get_logger, get_entity
-from data import read_corpus, read_dictionary, tag2label, random_embedding
+import os, argparse, time
+from process.utils import str2bool, get_logger, get_entity
+from process.data import read_corpus, read_dictionary, tag2label, random_embedding
 
 # 设置超参数
 parser = argparse.ArgumentParser(description='BiLSTM-CRF for Chinese NER task')
-parser.add_argument('--train_data', type=str, default='data_path', help='train data source')
-parser.add_argument('--test_data', type=str, default='data_path', help='test data source')
+parser.add_argument('--train_data', type=str, default='data', help='train data source')
+parser.add_argument('--test_data', type=str, default='data', help='test data source')
 parser.add_argument('--batch_size', type=int, default=32, help='#sample of each minibatch')
-parser.add_argument('--epoch', type=int, default=15, help='#epoch of training')
+parser.add_argument('--epoch', type=int, default=30, help='#epoch of training')
 parser.add_argument('--hidden_dim', type=int, default=10, help='#dim of hidden state')
 parser.add_argument('--optimizer', type=str, default='Adam', help='Adam/Adadelta/Adagrad/RMSProp/Momentum/SGD')
 parser.add_argument('--CRF', type=str2bool, default=True, help='use CRF at the top layer. if False, use Softmax')
@@ -24,8 +24,8 @@ parser.add_argument('--pretrain_embedding', type=str, default='random',
                     help='use pretrained char embedding or init it randomly')
 parser.add_argument('--embedding_dim', type=int, default=50, help='random init char embedding_dim')
 parser.add_argument('--shuffle', type=str2bool, default=True, help='shuffle training data before each epoch')
-parser.add_argument('--mode', type=str, default='demo', help='train/test/demo')
-parser.add_argument('--demo_model', type=str, default='1546053053', help='model for test and demo')
+parser.add_argument('--mode', type=str, default='train', help='train/test/demo')
+parser.add_argument('--demo_model', type=str, default='1560320600', help='model for test and demo')
 args = parser.parse_args()
 
 # 获取 embedding matrix

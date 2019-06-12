@@ -1,14 +1,13 @@
 __author__ = 'jrlimingyang@jd.com'
 
-import numpy as np
 import os, time, sys
 import tensorflow as tf
 from tensorflow.contrib.rnn import LSTMCell
 from tensorflow.contrib.crf import crf_log_likelihood
 from tensorflow.contrib.crf import viterbi_decode
-from data import pad_sequences, batch_yield
-from utils import get_logger
-from eval import conlleval
+from process.data import pad_sequences, batch_yield
+from process.utils import get_logger
+from process.eval import conlleval
 
 
 class BiLSTM_CRF(object):
@@ -59,23 +58,21 @@ class BiLSTM_CRF(object):
         self.trainstep_op()
         self.init_op()
 
-
     def add_placeholders(self):
         self.word_ids = tf.placeholder(tf.int32, shape=[None, None], name='word_ids')
         self.labels = tf.placeholder(tf.int32, shape=[None, None], name='labels')
         self.sequence_lengths = tf.placeholder(tf.int32, shape=[None], name='sequence_lengths')
 
-
     def lookup_layer_op(self):
         with tf.variable_scope('words'):
             _word_embeddings = tf.Variable(self.embeddings,
-                                            dtype=tf.float32,
-                                            trainable=self.update_embedding,
+                                           dtype=tf.float32,
+                                           trainable=self.update_embedding,
                                            name='_word_embeddings')
 
             word_embeddings = tf.nn.embedding_lookup(params=_word_embeddings,
-                                                      ids=self.word_ids,
-                                                      name='word_embeddings')
+                                                     ids=self.word_ids,
+                                                     name='word_embeddings')
 
         self.word_embeddings = tf.nn.dropout(word_embeddings, self.dropout_keep_prob)
 
@@ -96,7 +93,7 @@ class BiLSTM_CRF(object):
 
         with tf.variable_scope('proj'):
             W = tf.get_variable(name='W',
-                                shape=[2*self.hidden_dim, self.num_tags],
+                                shape=[2 * self.hidden_dim, self.num_tags],
                                 initializer=tf.contrib.layers.xavier_initializer(),
                                 dtype=tf.float32)
 
@@ -106,11 +103,10 @@ class BiLSTM_CRF(object):
                                 dtype=tf.float32)
 
             s = tf.shape(output)
-            output = tf.reshape(output, [-1, 2*self.hidden_dim])
+            output = tf.reshape(output, [-1, 2 * self.hidden_dim])
             pred = tf.matmul(output, W) + b
 
-            self.logits = tf.reshape(pred, [-1, s[1], self.num_tags],name='logits')
-
+            self.logits = tf.reshape(pred, [-1, s[1], self.num_tags], name='logits')
 
     def loss_op(self):
         if self.CRF:
@@ -130,12 +126,10 @@ class BiLSTM_CRF(object):
 
         tf.summary.scalar('loss', self.loss)
 
-
     def softmax_pred_op(self):
         if not self.CRF:
             self.labels_softmax_ = tf.argmax(self.logits, axis=-1)
             self.labels_softmax_ = tf.cast(self.labels_softmax_, tf.int32)
-
 
     def trainstep_op(self):
         with tf.variable_scope('train_step'):
@@ -159,10 +153,8 @@ class BiLSTM_CRF(object):
             grads_and_vars_clip = [[tf.clip_by_value(g, -self.clip_grad, self.clip_grad), v] for g, v in grads_and_vars]
             self.train_op = optim.apply_gradients(grads_and_vars_clip, global_step=self.global_step)
 
-
     def init_op(self):
         self.init_op = tf.global_variables_initializer()
-
 
     def add_summary(self, sess):
         '''
@@ -172,7 +164,6 @@ class BiLSTM_CRF(object):
         '''
         self.merged = tf.summary.merge_all()
         self.file_writer = tf.summary.FileWriter(self.summary_path, sess.graph)
-
 
     def train(self, train, dev):
         '''
@@ -193,7 +184,6 @@ class BiLSTM_CRF(object):
                 for epoch in range(self.epoch_num):
                     self.run_one_epoch(sess, train, dev, self.tag2label, epoch, saver)
 
-
     def test(self, test):
         saver = tf.train.Saver()
         with tf.Session() as sess:
@@ -201,7 +191,6 @@ class BiLSTM_CRF(object):
             saver.restore(sess, self.model_path)
             label_list, seq_len_list = self.dev_one_epoch(sess, test)
             self.evaluate(label_list, seq_len_list, test)
-
 
     def demo_one(self, sess, sent):
         label_list = []
@@ -214,27 +203,26 @@ class BiLSTM_CRF(object):
         tag = [label2tag[label] for label in label_list[0]]
         return tag
 
-
     def run_one_epoch(self, sess, train, dev, tag2label, epoch, saver):
         num_batches = (len(train) + self.batch_size - 1) // self.batch_size
 
         start_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
         batches = batch_yield(train, self.batch_size, self.vocab, self.tag2label, shuffle=self.shuffle)
         for step, (seqs, labels) in enumerate(batches):
-            sys.stdout.write(' preprocessing: {} batch / {} batches.'.format(step+1, num_batches) + '\r')
+            sys.stdout.write(' preprocessing: {} batch / {} batches.'.format(step + 1, num_batches) + '\r')
             step_num = epoch * num_batches + step + 1
             feed_dict, _ = self.get_feed_dict(seqs, labels)
-            _ , loss_train, summary, step_num_ = sess.run([self.train_op, self.loss, self.merged, self.global_step],
-                                                          feed_dict=feed_dict)
-            if step + 1 == 1 or (step + 1) % 300 == 0 or step + 1 == num_batches:
-                self.logger.info(
-                    '{} epoch {}, step {}, loss: {:.4}, global_step: {}'.format(start_time,
-                                                                                epoch + 1,
-                                                                                step + 1,
-                                                                                loss_train,
-                                                                                step_num
-                                                                                )
-                )
+            _, loss_train, summary, step_num_ = sess.run([self.train_op, self.loss, self.merged, self.global_step],
+                                                         feed_dict=feed_dict)
+            # if step + 1 == 1 or (step + 1) % 300 == 0 or step + 1 == num_batches:
+            self.logger.info(
+                '{} epoch {}, step {}, loss: {:.4}, global_step: {}'.format(start_time,
+                                                                            epoch + 1,
+                                                                            step + 1,
+                                                                            loss_train,
+                                                                            step_num
+                                                                            )
+            )
 
             self.file_writer.add_summary(summary, step_num)
 
@@ -247,7 +235,7 @@ class BiLSTM_CRF(object):
 
                 # 使用 saved_model 来保存模型
 
-                builder = tf.saved_model.builder.SavedModelBuilder('E:\\NER_LSTM\\model\\%s' % str(int(time.time())))
+                builder = tf.saved_model.builder.SavedModelBuilder('../model/%s' % str(int(time.time())))
                 inputs = {'input_x': tf.saved_model.utils.build_tensor_info(self.word_ids),
                           'sequence_length': tf.saved_model.utils.build_tensor_info(self.sequence_lengths)}
 
@@ -255,14 +243,12 @@ class BiLSTM_CRF(object):
                            'transition_param': tf.saved_model.utils.build_tensor_info(self.transition_params)}
 
                 signature = tf.saved_model.signature_def_utils.build_signature_def(inputs, outputs, 'test_sig_name')
-                builder.add_meta_graph_and_variables(sess,['test_saved_model'], {'test_signature': signature})
+                builder.add_meta_graph_and_variables(sess, ['test_saved_model'], {'test_signature': signature})
                 builder.save()
-
 
         self.logger.info('======== validation ========')
         label_list_dev, seq_len_list_dev = self.dev_one_epoch(sess, dev)
         self.evaluate(label_list_dev, seq_len_list_dev, dev, epoch)
-
 
     def get_feed_dict(self, seqs, labels=None):
         '''
@@ -286,7 +272,6 @@ class BiLSTM_CRF(object):
 
         return feed_dict, seq_len_list
 
-
     def dev_one_epoch(self, sess, dev):
         '''
 
@@ -300,7 +285,6 @@ class BiLSTM_CRF(object):
             label_list.extend(label_list_)
             seq_len_list.extend(seq_len_list_)
         return label_list, seq_len_list
-
 
     def predict_one_batch(self, sess, seqs):
         '''
@@ -325,7 +309,6 @@ class BiLSTM_CRF(object):
             label_list = sess.run(self.labels_softmax_, feed_dict=feed_dict)
             return label_list, seq_len_list
 
-
     def evaluate(self, label_list, seq_len_list, data, epoch=None):
         '''
 
@@ -344,14 +327,14 @@ class BiLSTM_CRF(object):
             tag_ = [label2tag[label__] for label__ in label_]
             sent_res = []
             if len(label_) != len(sent):
-                print (sent)
-                print (len(label_))
-                print (tag)
+                print(sent)
+                print(len(label_))
+                print(tag)
             for i in range(len(sent)):
                 sent_res.append([sent[i], tag[i], tag_[i]])
             model_predict.append(sent_res)
 
-        epoch_num = str(epoch+1) if epoch != None else 'test'
+        epoch_num = str(epoch + 1) if epoch != None else 'test'
         label_path = os.path.join(self.result_path, 'label_' + epoch_num)
         metric_path = os.path.join(self.result_path, 'result_metric_' + epoch_num)
         for _ in conlleval(model_predict, label_path, metric_path):

@@ -3,7 +3,7 @@ __author__ = 'jrlimingyang@jd.com'
 import os
 import pickle
 import tensorflow as tf
-from utils import get_entity
+from process.utils import get_entity
 from tensorflow.contrib.crf import viterbi_decode
 
 tag2label = {"O": 0,
